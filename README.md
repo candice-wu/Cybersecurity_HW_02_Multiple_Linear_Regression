@@ -105,6 +105,14 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
   - 分析 RFE 所選出的重要特徵。
   - 透過互動式混淆矩陣，深入了解模型在特定情境下的分類表現。
 
+## 如何部署到 Streamlit Cloud
+1. Push 專案資料夾 to remote GitHub
+2. 至 https://share.streamlit.io，點擊 “Create app”
+3. Repository：下拉選擇 candice-wu/Cybersecurity_HW_02_Multiple_Linear_Regression
+4. Branch：Main
+5. Main file path：下拉選擇 5114050013_hw2.py
+6. App URL (optional)：可以改掉預設值，自行命名
+
 ## 如何執行專案
 
 1.  **安裝依賴函式庫**:
@@ -129,4 +137,4 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
     ```bash
     streamlit run 5114050013_hw2.py
     ```
-    接著在瀏覽器中開啟顯示的 URL (例如 `http://localhost:8501`) 即可開始使用。
+    接著在瀏覽器中開啟顯示的 URL (例如 `https://hw02-multiple-linear-regression.streamlit.app`) 即可開始使用。
