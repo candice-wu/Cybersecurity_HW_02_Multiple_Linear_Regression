@@ -107,7 +107,7 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 
 ## 如何部署到 Streamlit Cloud
 1. Push 專案資料夾 to remote GitHub
-2. 至 https://share.streamlit.io，點擊 “Create app”
+2. 至 https://share.streamlit.io ，點擊右上角 “Create app”
 3. Repository：下拉選擇 candice-wu/Cybersecurity_HW_02_Multiple_Linear_Regression
 4. Branch：Main
 5. Main file path：下拉選擇 5114050013_hw2.py
