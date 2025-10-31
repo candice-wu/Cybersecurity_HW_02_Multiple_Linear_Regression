@@ -21,7 +21,8 @@ The project is organized into several key Python scripts:
     Both trained models and the RFE object are saved using `joblib`.
 - `5114050013_hw2.py`: This is the main application file. It uses Streamlit to create an interactive web interface with two main pages:
     - **Prediction Page**: Allows users to input details of a hypothetical cyber attack and get a prediction of the financial loss, including a 95% prediction interval.
-    - **Analysis Page**: A comprehensive dashboard for exploring the dataset and model. It includes sections for data overview, feature distribution, correlation analysis, feature importance, outlier detection, and an interactive confusion matrix based on categorized results.
+    - **Analysis Page**: A comprehensive dashboard with a tabbed layout for exploring the dataset and model. It includes tabs for "資料概覽" (Data Overview), "特徵分析" (Feature Analysis), "趨勢與衝擊" (Trend & Impact), "模型評估" (Model Evaluation), and "互動式展示" (Interactive Demo).
+- `CRISP_DM_Cybersecurity_Prediction_ver2.ipynb`: A Jupyter Notebook that documents the entire CRISP-DM process, from business understanding to model evaluation.
 
 ## Project Conventions
 
@@ -36,11 +37,7 @@ The project is organized into several key Python scripts:
 
 ### Testing Strategy
 - The model's performance is evaluated using standard regression metrics: R-squared, Root Mean Squared Error (RMSE), and Mean Absolute Error (MAE).
-- The Analysis Page includes several visualizations for evaluation:
-    - Actual vs. Predicted scatter plot.
-    - Residuals plot.
-    - A confusion matrix for binned results (Low, Medium, High loss) to provide a classification-style evaluation.
-    - Various plots for data exploration and understanding model behavior.
+- The Analysis Page includes several visualizations for evaluation, organized into tabs.
 
 ### Git Workflow
 - We use a feature branching workflow.

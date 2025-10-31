@@ -1,4 +1,7 @@
 import streamlit as st
+
+st.set_page_config(layout="wide", page_title="網路安全威脅財務損失預測", page_icon="💻")
+
 import numpy as np
 import joblib
 import pandas as pd
@@ -6,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import statsmodels.api as sm
 from sklearn.linear_model import LinearRegression # For interactive demo
+from matplotlib.patches import Patch
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from scipy.stats import norm
@@ -123,12 +127,9 @@ elif page == "分析頁面":
     # Load original data
     df_analysis = pd.read_csv('Global_Cybersecurity_Threats_2015-2024.csv')
 
-    analysis_section_selection = st.sidebar.selectbox(
-        "選擇分析區塊",
-        ["資料概覽", "特徵分佈分析", "趨勢與衝擊分析", "互動式線性迴歸展示", "模型性能", "相關性分析 (表格)", "特徵對財務損失的影響", "RFE 特徵分析", "特徵重要性", "異常值分析", "混淆矩陣"]
-    )
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["資料概覽", "特徵分析", "趨勢與衝擊", "模型評估", "互動式展示"])
 
-    if analysis_section_selection == "資料概覽":
+    with tab1:
         st.subheader("📊 資料概覽")
         st.write("### 資料集預覽")
         st.dataframe(df_analysis.head())
@@ -165,7 +166,7 @@ elif page == "分析頁面":
         ax.legend()
         st.pyplot(fig)
 
-    elif analysis_section_selection == "特徵分佈分析":
+    with tab2:
         st.subheader("📈 特徵分佈分析")
         analysis_plot_type = st.selectbox(
             "選擇分析類型",
@@ -232,7 +233,7 @@ elif page == "分析頁面":
                 ax.set_ylabel('Financial Loss (Million $)')
                 st.pyplot(fig)
 
-    elif analysis_section_selection == "趨勢與衝擊分析":
+    with tab3:
         st.subheader("🚀 趨勢與衝擊分析")
 
         @st.cache_data
@@ -245,7 +246,7 @@ elif page == "分析頁面":
                 default_input_data[category] = df_analysis[category].mode()[0]
             return default_input_data
 
-        def predict_loss(input_dict):
+        def predict_loss(input_dict, alpha_value):
             input_df = pd.DataFrame([input_dict], columns=full_feature_names)
             
             # Prepare input for statsmodels prediction
@@ -257,13 +258,13 @@ elif page == "分析頁面":
             input_df_sm_selected = input_df_sm[sm_model_features]
 
             predictions = sm_model.get_prediction(input_df_sm_selected)
-            summary_frame = predictions.summary_frame(alpha=0.05)
+            summary_frame = predictions.summary_frame(alpha=alpha_value)
             predicted_mean = summary_frame['mean'][0]
             lower_bound = summary_frame['obs_ci_lower'][0]
             upper_bound = summary_frame['obs_ci_upper'][0]
             return predicted_mean, lower_bound, upper_bound
 
-        def plot_impact_barchart(feature_name, default_input_data, ax):
+        def plot_impact_barchart(feature_name, default_input_data, ax, alpha_value):
             categories = sorted(df_analysis[feature_name].unique())
             predictions_data = []
             for cat_option in categories:
@@ -285,7 +286,7 @@ elif page == "分析頁面":
                 if one_hot_col in base_input:
                     base_input[one_hot_col] = 1
 
-                predicted_mean, lower_bound, upper_bound = predict_loss(base_input)
+                predicted_mean, lower_bound, upper_bound = predict_loss(base_input, alpha_value)
                 predictions_data.append({
                     'Category': cat_option,
                     'Predicted Loss': predicted_mean,
@@ -308,7 +309,58 @@ elif page == "分析頁面":
             ax.set_title(f'Impact of {feature_name} on Financial Loss')
             ax.tick_params(axis='x', rotation=45)
 
-        def plot_predicted_trend_chart(feature_name, default_input_data, ax):
+        def on_pick(event, trend_df, feature_name, ax):
+            # This function will be the callback for pick events.
+            artist = event.artist
+            xmouse, ymouse = event.mouseevent.xdata, event.mouseevent.ydata
+            x, y = artist.get_xdata(), artist.get_ydata()
+            ind = event.ind
+            
+            if not ind.any():
+                return
+
+            # Find the closest point
+            w, h = ax.get_figure().get_size_inches() * ax.get_figure().get_dpi()
+            ax_w = ax.get_position().width * w
+            ax_h = ax.get_position().height * h
+            
+            # Transform data to display coordinates
+            xy_data = ax.transData.transform(np.vstack([x,y]).T)
+            x_screen, y_screen = xy_data[:, 0], xy_data[:, 1]
+            
+            # Mouse position in display coordinates
+            mouse_x_screen, mouse_y_screen = ax.transData.transform([xmouse, ymouse])
+
+            # Find the index of the closest point in screen coordinates
+            distances = np.sqrt((x_screen[ind] - mouse_x_screen)**2 + (y_screen[ind] - mouse_y_screen)**2)
+            closest_ind_in_ind = np.argmin(distances)
+            closest_ind = ind[closest_ind_in_ind]
+
+            # Get the data point
+            picked_year = x[closest_ind]
+            picked_loss = y[closest_ind]
+            
+            # Find the category from the trend_df
+            category_value = trend_df[(trend_df['Year'] == picked_year) & (np.isclose(trend_df['Predicted Loss'], picked_loss))][feature_name].iloc[0]
+
+            # Remove previous annotations
+            for ann in ax.findobj(type=plt.Annotation):
+                ann.remove()
+
+            # Add new annotation
+            ax.annotate(f'Year: {int(picked_year)}\nLoss: ${picked_loss:.2f}M\n{feature_name}: {category_value}',
+                        xy=(picked_year, picked_loss),
+                        xytext=(0, 20),
+                        textcoords='offset points',
+                        ha='center',
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0.1'),
+                        bbox=dict(boxstyle='round,pad=0.5', fc='yellow', alpha=0.7))
+            
+            # Redraw the figure
+            fig = ax.get_figure()
+            fig.canvas.draw_idle()
+
+        def plot_predicted_trend_chart(feature_name, default_input_data, ax, alpha_value, confidence_level):
             trend_data = []
             years = range(2015, 2025)
             categories = sorted(df_analysis[feature_name].unique())
@@ -335,7 +387,7 @@ elif page == "分析頁面":
                     if one_hot_col in base_input:
                         base_input[one_hot_col] = 1
 
-                    predicted_mean, lower_bound, upper_bound = predict_loss(base_input)
+                    predicted_mean, lower_bound, upper_bound = predict_loss(base_input, alpha_value)
                     trend_data.append({
                         'Year': year, 
                         feature_name: cat_option, 
@@ -347,14 +399,37 @@ elif page == "分析頁面":
             trend_df = pd.DataFrame(trend_data)
             
             # Plotting with prediction intervals
+            lines = []
             for category in categories:
                 subset = trend_df[trend_df[feature_name] == category]
+                # line, = ax.plot(subset['Year'], subset['Predicted Loss'], marker='o', linestyle='-', label=category, picker=5)
+                # lines.append(line)
+                # ax.fill_between(subset['Year'], subset['Lower Bound'], subset['Upper Bound'], facecolor=line.get_color(), alpha=0.2)
                 sns.lineplot(data=subset, x='Year', y='Predicted Loss', ax=ax, marker='o', label=category)
-                ax.fill_between(subset['Year'], subset['Lower Bound'], subset['Upper Bound'], color='orange', alpha=0.2, label='95% Prediction Interval')
+                ax.fill_between(subset['Year'], subset['Lower Bound'], subset['Upper Bound'], color='orange', alpha=0.2)
             
+            # Create a proxy artist for the prediction interval legend entry
+            # prediction_interval_patch = Patch(color='orange', alpha=0.2, label='95% Prediction Interval')
+            prediction_interval_patch = Patch(color='orange', alpha=0.2, label=f'{confidence_level}% Prediction Interval')
+            
+            # Get existing handles and labels
+            handles, labels = ax.get_legend_handles_labels()
+            
+            # Add the prediction interval patch to handles and labels
+            # handles.append(prediction_interval_patch)
+            # labels.append('95% Prediction Interval')
+            handles, labels = ax.get_legend_handles_labels()
+            handles.append(prediction_interval_patch)
+            labels.append(f'{confidence_level}% Prediction Interval')
+
+
             ax.set_title(f'Predicted Financial Loss Trend by {feature_name} with 95% Prediction Interval')
             ax.set_ylabel("Predicted Financial Loss (Million $)")
-            ax.legend(title=feature_name, loc='best')
+            # 修正圖例位置在右上角，避免重疊
+            ax.legend(handles=handles, labels=labels, title=feature_name, loc='upper right')
+
+            fig = ax.get_figure()
+            fig.canvas.mpl_connect('pick_event', lambda event: on_pick(event, trend_df, feature_name, ax))
 
         def plot_actual_trend_chart(feature_name, df, ax):
             actual_trend_df = df.groupby(['Year', feature_name])['Financial Loss (in Million $)'].mean().reset_index()
@@ -389,12 +464,23 @@ elif page == "分析頁面":
         for feature in top_3_cat_features:
             st.write(f"#### 分析：{feature}")
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
-            plot_impact_barchart(feature, default_input, ax=ax1)
+            plot_impact_barchart(feature, default_input, ax=ax1, alpha_value=0.05)
             plot_actual_trend_chart(feature, df_analysis, ax=ax2)
             st.pyplot(fig)
 
         st.write("### 📈 互動式預測趨勢分析")
         
+        # Add a slider for confidence level
+        confidence_level = st.slider(
+            "選擇預測區間的信賴水準 (%)",
+            min_value=80,
+            max_value=99,
+            value=95,
+            step=1,
+            help="調整此值以改變預測區間的寬度。例如，95% 表示有 95% 的機率真實值會落在此區間內。"
+        )
+        alpha_value = 1 - (confidence_level / 100) # Convert percentage to alpha for statsmodels
+
         trend_type = st.selectbox("選擇趨勢圖類型", ["實際趨勢 (Actual Trend)", "預測趨勢 (Predicted Trend)"])
         
         selected_feature_for_trend = st.selectbox(
@@ -411,88 +497,10 @@ elif page == "分析頁面":
             st.info("此圖表顯示模型的『預測』趨勢。線條平行的原因，是因為在控制所有其他變數不變的情況下，『年份』的變動對每個類別的預測值產生了固定的線性影響。")
             if selected_feature_for_trend:
                 fig, ax = plt.subplots(figsize=(12, 7))
-                plot_predicted_trend_chart(selected_feature_for_trend, default_input, ax)
+                plot_predicted_trend_chart(selected_feature_for_trend, default_input, ax, alpha_value, confidence_level)
                 st.pyplot(fig)
 
-    elif analysis_section_selection == "互動式線性迴歸展示":
-        st.subheader("🕹️ 互動式線性迴歸展示")
-        
-        demo_type = st.radio("選擇展示模式", ["真實資料探索 (Real Data Exploration)", "模擬資料教學 (Synthetic Data Demo)"])
-
-        if demo_type == "模擬資料教學 (Synthetic Data Demo)":
-            st.info("此為教學用途的模擬資料。您可以調整下方參數，觀察線性迴歸如何擬合不同型態的資料。")
-            # Input controls for the interactive demo
-            a_true = st.slider("真實斜率 (a)", min_value=-5.0, max_value=5.0, value=2.0, step=0.1)
-            noise_std = st.slider("噪聲標準差", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
-            n_points = st.slider("數據點數量", min_value=10, max_value=500, value=100, step=10)
-
-            # Generate synthetic data
-            X_synth = np.random.rand(n_points) * 10
-            y_true = a_true * X_synth
-            noise = np.random.randn(n_points) * noise_std
-            y_synth = y_true + noise
-
-            # Perform simple linear regression
-            synth_model = LinearRegression()
-            synth_model.fit(X_synth.reshape(-1, 1), y_synth)
-            y_pred_synth = synth_model.predict(X_synth.reshape(-1, 1))
-            r2_synth = synth_model.score(X_synth.reshape(-1, 1), y_synth)
-
-            # Plotting
-            fig, ax = plt.subplots(figsize=(10, 6))
-            sns.scatterplot(x=X_synth, y=y_synth, label="Raw Data", ax=ax)
-            ax.plot(X_synth, y_true, color='green', linestyle='--', label="True Relationship")
-            ax.plot(X_synth, y_pred_synth, color='red', label="Fitted Regression Line")
-            ax.set_xlabel("X Value")
-            ax.set_ylabel("Y Value")
-            ax.set_title("Interactive Linear Regression")
-            ax.legend()
-            st.pyplot(fig)
-
-            st.write(f"擬合模型的 R-squared: {r2_synth:.2f}")
-
-        elif demo_type == "真實資料探索 (Real Data Exploration)":
-            st.markdown("從真實資料集中選擇一個數值特徵，觀察其與財務損失的線性關係。")
-            
-            feature_to_plot = st.selectbox("選擇一個數值特徵", original_numerical_cols)
-            
-            if feature_to_plot:
-                X_real = df_analysis[[feature_to_plot]]
-                y_real = df_analysis['Financial Loss (in Million $)']
-
-                # Simple linear regression
-                real_model = LinearRegression()
-                real_model.fit(X_real, y_real)
-                y_pred_real = real_model.predict(X_real)
-                r2_real = real_model.score(X_real, y_real)
-                coef = real_model.coef_[0]
-                intercept = real_model.intercept_
-
-                # Plotting
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.scatterplot(x=df_analysis[feature_to_plot], y=y_real, label="Actual Data", ax=ax)
-                ax.plot(df_analysis[feature_to_plot], y_pred_real, color='red', label="Fitted Regression Line")
-                ax.set_xlabel(feature_to_plot)
-                ax.set_ylabel("Financial Loss (in Million $)")
-                ax.set_title(f'Simple Linear Regression: {feature_to_plot} vs. Financial Loss')
-                ax.legend()
-                st.pyplot(fig)
-
-                st.write(f"**R-squared:** {r2_real:.3f}")
-                st.write(f"**迴歸方程式:** `Financial Loss = {coef:.2f} * ({feature_to_plot}) + {intercept:.2f}`")
-                st.info("""
-                **方程式解讀:**
-
-                這個迴歸方程式代表了您所選的單一特徵（X軸）與「財務損失」（Y軸）之間的最佳擬合直線。
-
-                *   **`a` (斜率/係數):** 代表您選擇的特徵**每增加一個單位**，「財務損失」預計會改變多少。
-                *   **`b` (截距):** 代表當您選擇的特徵值為 0 時，模型的預測損失是多少。
-
-                每當您選擇一個新的特徵，程式都會重新計算一次最適合描述它們倆關係的直線，因此方程式會隨之改變。
-                """)
-
-
-    elif analysis_section_selection == "模型性能":
+    with tab4:
         st.subheader("🚀 模型性能")
         # Load test data
         X_test = np.load('X_test.npy', allow_pickle=True)
@@ -534,96 +542,6 @@ elif page == "分析頁面":
         ax.set_title("Residuals Plot")
         st.pyplot(fig)
 
-    elif analysis_section_selection == "相關性分析 (表格)":
-        st.subheader("🧮 相關性分析 (表格)")
-        st.write("顯示數值特徵與財務損失的相關性矩陣。")
-        correlation_matrix = df_analysis[original_numerical_cols + ['Financial Loss (in Million $)']].corr()
-        st.dataframe(correlation_matrix)
-
-    elif analysis_section_selection == "特徵對財務損失的影響":
-        st.subheader("ազ 特徵對財務損失的影響")
-        st.markdown("視覺化單一特徵的變化如何影響預測的財務損失，同時其他特徵保持在其平均值/眾數。")
-
-        # Get default input data (mean for numerical, mode for categorical)
-        default_input_data = {}
-        for col in original_numerical_cols:
-            default_input_data[col] = df_analysis[col].mean()
-        for category in original_categorical_columns_map.keys():
-            if original_categorical_columns_map[category]:
-                default_input_data[category] = df_analysis[category].mode()[0]
-            else:
-                default_input_data[category] = ""
-
-        # Feature selection for plotting
-        all_features_for_impact = original_numerical_cols + list(original_categorical_columns_map.keys())
-        selected_feature_for_impact = st.selectbox(
-            "選擇一個特徵來分析其影響",
-            all_features_for_impact
-        )
-
-        if selected_feature_for_impact:
-            st.write(f"#### {selected_feature_for_impact} 對預測財務損失的影響")
-
-            # Create a base input_df from default_input_data
-            base_input_dict = {feature: 0 for feature in full_feature_names}
-            for col in original_numerical_cols:
-                base_input_dict[col] = default_input_data[col]
-            for category_name, selected_option in default_input_data.items():
-                if category_name not in original_numerical_cols:
-                    one_hot_col_name = f'{category_name}_{selected_option}'
-                    if one_hot_col_name in full_feature_names:
-                        base_input_dict[one_hot_col_name] = 1
-
-            if selected_feature_for_impact in original_numerical_cols:
-                # Numerical feature impact
-                feature_min = df_analysis[selected_feature_for_impact].min()
-                feature_max = df_analysis[selected_feature_for_impact].max()
-                feature_range = np.linspace(feature_min, feature_max, 50)
-
-                predictions = []
-                for val in feature_range:
-                    temp_input_data = base_input_dict.copy()
-                    temp_input_data[selected_feature_for_impact] = val
-                    
-                    temp_input_df_sklearn = pd.DataFrame([temp_input_data], columns=full_feature_names)
-                    temp_input_df_scaled = scaler.transform(temp_input_df_sklearn)
-                    temp_selected_features_transformed = rfe.transform(temp_input_df_scaled)
-                    predictions.append(model.predict(temp_selected_features_transformed)[0])
-
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(feature_range, predictions, marker='o', linestyle='-')
-                ax.set_xlabel(selected_feature_for_impact)
-                ax.set_ylabel("Predicted Financial Loss (Million $)")
-                ax.set_title(f'Impact of {selected_feature_for_impact} on Financial Loss')
-                st.pyplot(fig)
-
-            else: # Categorical feature impact
-                categories = sorted(df_analysis[selected_feature_for_impact].unique())
-                predictions = []
-                for cat_option in categories:
-                    temp_input_data = base_input_dict.copy()
-                    for option in original_categorical_columns_map[selected_feature_for_impact]:
-                        one_hot_col_name = f'{selected_feature_for_impact}_{option}'
-                        if one_hot_col_name in full_feature_names:
-                            temp_input_data[one_hot_col_name] = 0
-                    one_hot_col_name = f'{selected_feature_for_impact}_{cat_option}'
-                    if one_hot_col_name in full_feature_names:
-                        temp_input_data[one_hot_col_name] = 1
-
-                    temp_input_df_sklearn = pd.DataFrame([temp_input_data], columns=full_feature_names)
-                    temp_input_df_scaled = scaler.transform(temp_input_df_sklearn)
-                    temp_selected_features_transformed = rfe.transform(temp_input_df_scaled)
-                    predictions.append(model.predict(temp_selected_features_transformed)[0])
-
-                fig, ax = plt.subplots(figsize=(10, 6))
-                sns.barplot(x=categories, y=predictions, ax=ax)
-                ax.set_xlabel(selected_feature_for_impact)
-                ax.set_ylabel("Predicted Financial Loss (Million $)")
-                ax.set_title(f'Impact of {selected_feature_for_impact} on Financial Loss')
-                plt.xticks(rotation=45, ha='right')
-                st.pyplot(fig)
-
-    elif analysis_section_selection == "RFE 特徵分析":
         st.subheader("🔍 RFE 特徵分析 (遞歸特徵消除)")
         st.write("RFE 透過遞歸地考慮越來越小的特徵集來選擇特徵。")
         st.write(f"RFE 模型選擇了 {rfe.n_features_} 個特徵。")
@@ -633,7 +551,6 @@ elif page == "分析頁面":
         for feature in selected_rfe_features.tolist():
             st.markdown(f"- `{feature}`")
 
-    elif analysis_section_selection == "特徵重要性":
         st.subheader("🌟 特徵重要性")
         st.write("對於線性模型，特徵重要性可以從係數的絕對大小推斷出來。")
 
@@ -656,7 +573,6 @@ elif page == "分析頁面":
         ax.set_ylabel('Feature')
         st.pyplot(fig)
 
-    elif analysis_section_selection == "異常值分析":
         st.subheader(" outliers 異常值分析")
         st.markdown("識別並視覺化數值特徵和財務損失中的潛在異常值。")
 
@@ -699,7 +615,6 @@ elif page == "分析頁面":
         ax.legend()
         st.pyplot(fig)
         
-    elif analysis_section_selection == "混淆矩陣":
         st.subheader("📈 混淆矩陣")
         st.markdown("為了產生混淆矩陣，我們將連續的財務損失目標變數轉換為三個類別：低、中、高。您可以依特定特徵篩選資料，觀察模型在不同情境下的表現。")
 
@@ -788,3 +703,80 @@ elif page == "分析頁面":
             ax.set_xlabel('Predicted Labels')
             ax.set_ylabel('True Labels')
             st.pyplot(fig)
+
+    with tab5:
+        st.subheader("🕹️ 互動式線性迴歸展示")
+        
+        demo_type = st.radio("選擇展示模式", ["真實資料探索 (Real Data Exploration)", "模擬資料教學 (Synthetic Data Demo)"])
+
+        if demo_type == "模擬資料教學 (Synthetic Data Demo)":
+            st.info("此為教學用途的模擬資料。您可以調整下方參數，觀察線性迴歸如何擬合不同型態的資料。")
+            # Input controls for the interactive demo
+            a_true = st.slider("真實斜率 (a)", min_value=-5.0, max_value=5.0, value=2.0, step=0.1)
+            noise_std = st.slider("噪聲標準差", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
+            n_points = st.slider("數據點數量", min_value=10, max_value=500, value=100, step=10)
+
+            # Generate synthetic data
+            X_synth = np.random.rand(n_points) * 10
+            y_true = a_true * X_synth
+            noise = np.random.randn(n_points) * noise_std
+            y_synth = y_true + noise
+
+            # Perform simple linear regression
+            synth_model = LinearRegression()
+            synth_model.fit(X_synth.reshape(-1, 1), y_synth)
+            y_pred_synth = synth_model.predict(X_synth.reshape(-1, 1))
+            r2_synth = synth_model.score(X_synth.reshape(-1, 1), y_synth)
+
+            # Plotting
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.scatterplot(x=X_synth, y=y_synth, label="Raw Data", ax=ax)
+            ax.plot(X_synth, y_true, color='green', linestyle='--', label="True Relationship")
+            ax.plot(X_synth, y_pred_synth, color='red', label="Fitted Regression Line")
+            ax.set_xlabel("X Value")
+            ax.set_ylabel("Y Value")
+            ax.set_title("Interactive Linear Regression")
+            ax.legend()
+            st.pyplot(fig)
+
+            st.write(f"擬合模型的 R-squared: {r2_synth:.2f}")
+
+        elif demo_type == "真實資料探索 (Real Data Exploration)":
+            st.markdown("從真實資料集中選擇一個數值特徵，觀察其與財務損失的線性關係。")
+            
+            feature_to_plot = st.selectbox("選擇一個數值特徵", original_numerical_cols)
+            
+            if feature_to_plot:
+                X_real = df_analysis[[feature_to_plot]]
+                y_real = df_analysis['Financial Loss (in Million $)']
+
+                # Simple linear regression
+                real_model = LinearRegression()
+                real_model.fit(X_real, y_real)
+                y_pred_real = real_model.predict(X_real)
+                r2_real = real_model.score(X_real, y_real)
+                coef = real_model.coef_[0]
+                intercept = real_model.intercept_
+
+                # Plotting
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.scatterplot(x=df_analysis[feature_to_plot], y=y_real, label="Actual Data", ax=ax)
+                ax.plot(df_analysis[feature_to_plot], y_pred_real, color='red', label="Fitted Regression Line")
+                ax.set_xlabel(feature_to_plot)
+                ax.set_ylabel("Financial Loss (in Million $)")
+                ax.set_title(f'Simple Linear Regression: {feature_to_plot} vs. Financial Loss')
+                ax.legend()
+                st.pyplot(fig)
+
+                st.write(f"**R-squared:** {r2_real:.3f}")
+                st.write(f"**迴歸方程式:** `Financial Loss = {coef:.2f} * ({feature_to_plot}) + {intercept:.2f}`")
+                st.info("""
+                **方程式解讀:**
+
+                這個迴歸方程式代表了您所選的單一特徵（X軸）與「財務損失」（Y軸）之間的最佳擬合直線。
+
+                *   **`a` (斜率/係數):** 代表您選擇的特徵**每增加一個單位**，「財務損失」預計會改變多少。
+                *   **`b` (截距):** 代表當您選擇的特徵值為 0 時，模型的預測損失是多少。
+
+                每當您選擇一個新的特徵，程式都會重新計算一次最適合描述它們倆關係的直線，因此方程式會隨之改變。
+                """)

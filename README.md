@@ -1,5 +1,9 @@
 Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 
+[補充]
+  1. 與 ChatGPT 對話記錄請參閱「人工智慧與資訊安全_HW02_與 chatGPT 對話記錄.pdf」
+  2. 與 AI Agent (Gemini CLI and openspec) 對話記錄請參閱 prompt 資料夾裡的 7 份 .txt files.
+
 # 網路安全威脅財務損失預測專案
 
 這是一個基於機器學習的專案，旨在預測網路安全事件可能造成的財務損失。專案採用 CRISP-DM（Cross-Industry Standard Process for Data Mining）流程方法論，從商業理解到模型部署，提供了一個完整的資料科學專案範例。
@@ -9,8 +13,9 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 ## 專案結構
 
 ```
-.
+. 
 ├── 5114050013_hw2.py         # Streamlit 應用程式主檔案
+├── CRISP_DM_Cybersecurity_Prediction_ver2.ipynb # CRISP-DM 流程的 Jupyter Notebook
 ├── prepare_data.py           # 資料準備與預處理腳本
 ├── train_model.py            # 模型訓練腳本
 ├── requirements.txt          # Python 函式庫依賴列表
@@ -23,7 +28,14 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 └── README.md                 # 本檔案
 ```
 
+## 資料集來源與連結
+Dataset Source：Kaggle
+Subject：Global Cybersecurity Threats (2015 ~ 2024)
+Website link：https://www.kaggle.com/datasets/atharvasoundankar/global-cybersecurity-threats-2015-2024
+
 ## CRISP-DM 流程說明
+
+本專案遵循 CRISP-DM 流程，相關的程式碼和分析都記錄在 `CRISP_DM_Cybersecurity_Prediction_ver2.ipynb` 中。
 
 ### 1. 商業理解 (Business Understanding)
 
@@ -49,7 +61,7 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 - **Incident Resolution Time (in Hours)**: 事件解決所需時間（小時）。
 - **Financial Loss (in Million $)**: 財務損失（百萬美元），此為我們的**目標變數**。
 
-在 Streamlit 應用程式的「分析頁面」中，「資料概覽」和「特徵分佈分析」區塊提供了對資料的深入探索，包括資料偏度分析、各特徵的分佈直方圖、盒鬚圖等。
+在 Streamlit 應用程式的「分析頁面」中，「資料概覽」和「特徵分析」分頁提供了對資料的深入探索。
 
 ### 3. 資料準備 (Data Preparation)
 
@@ -57,38 +69,27 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 
 1.  **載入資料**：從 CSV 檔案載入資料集。
 2.  **特徵工程**：
-    *   **獨熱編碼 (One-Hot Encoding)**：將所有類別特徵（如 `Attack Type`, `Country`）轉換為數值格式，以便機器學習模型能夠處理。
+    *   **獨熱編碼 (One-Hot Encoding)**：將所有類別特徵轉換為數值格式。
 3.  **資料標準化**：
-    *   使用 `StandardScaler` 對所有數值特徵進行標準化，使其具有零均值和單位變異數。這一步驟對於線性模型和 RFE 的穩定性至關重要。
+    *   使用 `StandardScaler` 對所有數值特徵進行標準化。
 4.  **資料分割**：
-    *   將處理後的資料集以 80/20 的比例分割為訓練集和測試集。此過程中使用固定的 `random_state` 以確保結果的可重現性。
-5.  **儲存產物**：將處理好的訓練集/測試集（`.npy` 格式）、`StandardScaler` 物件、以及特徵名稱列表儲存為檔案，供後續模型訓練和應用程式使用。
+    *   將資料集以 80/20 的比例分割為訓練集和測試集。
+5.  **儲存產物**：將處理好的資料、Scaler 物件及特徵名稱儲存為檔案。
 
 ### 4. 模型建立 (Modeling)
 
 此階段由 `train_model.py` 腳本負責。我們建立了兩個互補的迴歸模型：
 
 1.  **Scikit-learn 線性迴歸 + RFE**:
-    *   **遞歸特徵消除 (RFE)**：首先，我們使用 RFE 來自動篩選出對預測財務損失最重要的 10 個特徵。
-    *   **線性迴歸 (Linear Regression)**：接著，我們使用一個標準的線性迴歸模型，僅在 RFE 篩選出的特徵上進行訓練。這個模型 (`cyber_risk_model.pkl`) 主要用於產生最終的預測值。
-
+    *   使用 RFE 進行特徵篩選，並以線性迴歸模型進行訓練。
 2.  **Statsmodels OLS 模型**:
-    *   我們另外使用 `statsmodels` 函式庫建立了一個普通最小二乘法 (OLS) 模型。此模型 (`statsmodels_model.pkl`) 的優勢在於提供詳細的統計摘要，包括特徵的 p-value、信賴區間等。
-    *   在本專案中，它主要用於計算預測值的 **95% 預測區間**，並在「特徵重要性」分析中提供係數參考。
+    *   用於計算預測值的 95% 預測區間和提供詳細的統計摘要。
 
 ### 5. 模型評估 (Evaluation)
 
-模型的評估在 Streamlit 應用程式的「分析頁面」中進行，主要包含以下幾個部分：
-
-- **迴歸指標**：在「模型性能」區塊，我們計算並展示了三個關鍵的迴歸評估指標：
-  - **R-squared (R²)**: 解釋了模型對目標變數變異性的解釋程度。
-  - **Root Mean Squared Error (RMSE)**: 衡量預測值與實際值之間的平均誤差幅度。
-  - **Mean Absolute Error (MAE)**: 提供了另一種誤差的衡量方式，較不受異常值影響。
-
-- **視覺化評估**：
-  - **實際 vs. 預測圖**：一個散點圖，用於比較實際損失與模型預測損失的一致性。
-  - **殘差圖**：用於檢查誤差是否隨機分佈，是評估模型假設的重要工具。
-  - **混淆矩陣**：雖然這是迴歸問題，但我們將連續的損失值分為「高、中、低」三個等級，並建立了一個互動式的混淆矩陣。這讓使用者可以從「分類」的角度評估模型在不同損失等級上的預測準確度，並可依特定特徵進行篩選分析。
+模型的評估在 Streamlit 應用程式的「分析頁面」的「模型評估」分頁中進行，包含：
+- **迴歸指標**：R-squared (R²), Root Mean Squared Error (RMSE), Mean Absolute Error (MAE)。
+- **視覺化評估**：實際 vs. 預測圖、殘差圖、互動式混淆矩陣。
 
 ### 6. 部署 (Deployment)
 
@@ -96,22 +97,20 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
 
 **應用程式功能：**
 
-- **預測頁面**：使用者可以在側邊欄輸入各種攻擊事件的參數（如年份、攻擊類型、影響用戶數等），點擊按鈕後，應用程式會立即回傳預測的財務損失金額，並以圖表形式展示其 95% 的預測區間。
+- **預測頁面**：使用者可以輸入攻擊事件參數，預測財務損失金額及其 95% 預測區間。
 
-- **分析頁面**：提供了一個功能豐富的儀表板，讓使用者可以：
-  - 概覽資料集的統計特性與分佈。
-  - 探索不同特徵之間的關係以及它們對財務損失的影響。
-  - 查看模型的詳細性能指標與評估圖表。
-  - 分析 RFE 所選出的重要特徵。
-  - 透過互動式混淆矩陣，深入了解模型在特定情境下的分類表現。
+- **分析頁面**：提供了一個重新設計的分頁式儀表板，讓使用者可以：
+  - **資料概覽**: 檢視資料集的統計特性與分佈。
+  - **特徵分析**: 探索不同特徵之間的關係及其對財務損失的影響。
+  - **趨勢與衝擊**: 分析特定特徵的趨勢與影響。
+  - **模型評估**: 查看模型的詳細性能指標與評估圖表。
+  - **互動式展示**: 進行互動式的線性迴歸展示。
 
 ## 如何部署到 Streamlit Cloud
-1. Push 專案資料夾 to remote GitHub
-2. 至 https://share.streamlit.io ，點擊右上角 “Create app”
-3. Repository：下拉選擇 candice-wu/Cybersecurity_HW_02_Multiple_Linear_Regression
-4. Branch：Main
-5. Main file path：下拉選擇 5114050013_hw2.py
-6. App URL (optional)：可以改掉預設值，自行命名
+1. 將專案資料夾推送到遠端 GitHub。
+2. 前往 https://share.streamlit.io ，點擊 “Create app”。
+3. 選擇您的 GitHub Repository 和 `5114050013_hw2.py` 作為主檔案。
+4. 部署應用程式。
 
 ## 如何執行專案
 
@@ -120,21 +119,15 @@ Streamlit Demo-site：https://hw02-multiple-linear-regression.streamlit.app
     pip install -r requirements.txt
     ```
 
-2.  **準備資料**:
-    執行資料準備腳本，此步驟會產生模型訓練所需的 `.npy` 和 `.pkl` 檔案。
+2.  **準備資料與訓練模型**:
+    執行以下腳本來準備資料並訓練模型。
     ```bash
     python prepare_data.py
-    ```
-
-3.  **訓練模型**:
-    執行模型訓練腳本，此步驟會產生訓練好的模型檔案。
-    ```bash
     python train_model.py
     ```
 
-4.  **啟動應用程式**:
-    執行 Streamlit 應用程式。
+3.  **啟動應用程式**:
     ```bash
     streamlit run 5114050013_hw2.py
     ```
-    接著在瀏覽器中開啟顯示的 URL (例如 `https://hw02-multiple-linear-regression.streamlit.app`) 即可開始使用。
+    接著在瀏覽器中開啟顯示的 URL。
