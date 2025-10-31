@@ -350,11 +350,11 @@ elif page == "分析頁面":
             for category in categories:
                 subset = trend_df[trend_df[feature_name] == category]
                 sns.lineplot(data=subset, x='Year', y='Predicted Loss', ax=ax, marker='o', label=category)
-                ax.fill_between(subset['Year'], subset['Lower Bound'], subset['Upper Bound'], alpha=0.2)
+                ax.fill_between(subset['Year'], subset['Lower Bound'], subset['Upper Bound'], color='orange', alpha=0.2, label='95% Prediction Interval')
             
             ax.set_title(f'Predicted Financial Loss Trend by {feature_name} with 95% Prediction Interval')
             ax.set_ylabel("Predicted Financial Loss (Million $)")
-            ax.legend(title=feature_name)
+            ax.legend(title=feature_name, loc='best')
 
         def plot_actual_trend_chart(feature_name, df, ax):
             actual_trend_df = df.groupby(['Year', feature_name])['Financial Loss (in Million $)'].mean().reset_index()
