@@ -107,10 +107,13 @@ Website link：https://www.kaggle.com/datasets/atharvasoundankar/global-cybersec
   - **互動式展示**: 進行互動式的線性迴歸展示。
 
 ## 如何部署到 Streamlit Cloud
-1. 將專案資料夾推送到遠端 GitHub。
-2. 前往 https://share.streamlit.io ，點擊 “Create app”。
-3. 選擇您的 GitHub Repository 和 `5114050013_hw2.py` 作為主檔案。
-4. 部署應用程式。
+1. Push 專案資料夾 to GitHub
+2. 至 https://share.streamlit.io ，點擊 “Create app”
+3. Repository：下拉選擇 candice-wu/Cybersecurity_HW_02_Multiple_Linear_Regression
+4. Branch：Main
+5. Main file path：5114050013_hw2.py
+6. App URL (optional)：預設可以維持，或改掉並另外命名，如：https://hw02-multiple-linear-regression
+7. 點擊 “Deploy” 即完成部署
 
 ## 如何執行專案
 
